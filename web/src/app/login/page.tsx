@@ -1,7 +1,7 @@
 "use client";
 
-import { signIn } from "next-auth/react";
 import Link from "next/link";
+import { buildApiUrl } from "@/lib/api-url";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
 
@@ -21,18 +21,16 @@ function LoginForm() {
     setError(null);
     setLoading(true);
     try {
-      const res = await signIn("credentials", {
-        name,
-        callbackUrl,
-        redirect: false,
+      const res = await fetch(buildApiUrl("/api/auth/login"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name }),
       });
-      if (res?.error) {
+      if (!res.ok) {
         setError(LOGIN_ERROR_MESSAGE);
         return;
       }
-      if (res?.url) {
-        window.location.href = res.url;
-      }
+      window.location.href = callbackUrl;
     } catch {
       setError(GENERIC_ERROR_MESSAGE);
     } finally {

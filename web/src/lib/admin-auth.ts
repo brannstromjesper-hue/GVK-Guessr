@@ -1,8 +1,8 @@
-import { auth } from "@/auth";
 import { ensureMembersSeeded, isAdminMemberByKey } from "@/lib/member-store";
+import { getSessionFromCookies } from "@/lib/session";
 
 export async function requireAdminUserKey(): Promise<string | null> {
-  const session = await auth();
+  const session = getSessionFromCookies();
   await ensureMembersSeeded();
 
   const userKey = session?.user?.id;

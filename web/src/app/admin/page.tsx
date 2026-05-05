@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { useSession } from "next-auth/react";
 import AdminMembersPanel from "@/components/AdminMembersPanel";
 import AdminGuessesPanel from "@/components/AdminGuessesPanel";
 import { buildApiUrl } from "@/lib/api-url";
@@ -23,17 +22,25 @@ type MemberRow = {
 };
 
 export default function AdminPage() {
-  const { data: session, status } = useSession();
+  const [session, setSession] = useState<{ user: { id: string; name: string } } | null>(null);
+  const [status, setStatus] = useState<"loading" | "authenticated" | "unauthenticated">("loading");
   const [guesses, setGuesses] = useState<GuessRow[] | null>(null);
   const [members, setMembers] = useState<MemberRow[] | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (status !== "authenticated") return;
-
-    async function loadAdminData() {
+    async function loadSessionAndAdminData() {
       setLoadError(null);
       try {
+        const sessionRes = await fetch(buildApiUrl("/api/auth/session"));
+        if (!sessionRes.ok) {
+          setStatus("unauthenticated");
+          return;
+        }
+        const sessionBody = (await sessionRes.json()) as { user: { id: string; name: string } };
+        setSession(sessionBody);
+        setStatus("authenticated");
+
         const [guessesRes, membersRes] = await Promise.all([
           fetch(buildApiUrl("/api/admin/guesses")),
           fetch(buildApiUrl("/api/admin/members")),
@@ -54,12 +61,13 @@ export default function AdminPage() {
         setGuesses(localizedGuesses);
         setMembers(membersBody.members ?? []);
       } catch (err) {
+        setStatus("unauthenticated");
         setLoadError(err instanceof Error ? err.message : "Tietojen lataus epäonnistui.");
       }
     }
 
-    void loadAdminData();
-  }, [status]);
+    void loadSessionAndAdminData();
+  }, []);
 
   if (status === "loading" || (status === "authenticated" && (!guesses || !members) && !loadError)) {
     return (

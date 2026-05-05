@@ -1,0 +1,46 @@
+import { NextResponse } from "next/server";
+import prisma from "@/lib/prisma";
+import { ensureMembersSeeded, memberKey } from "@/lib/member-store";
+import {
+  createSessionToken,
+  getSessionCookieName,
+  getSessionMaxAgeSeconds,
+} from "@/lib/session";
+
+const invalidCredentialsError = {
+  error: "Nimeä ei löydy jäsenlistalta (tai lista on tyhjä).",
+};
+
+export async function POST(req: Request) {
+  const body = (await req.json().catch(() => ({}))) as {
+    name?: string;
+  };
+  const inputName = body.name?.trim() ?? "";
+  if (!inputName) {
+    return NextResponse.json(invalidCredentialsError, { status: 401 });
+  }
+
+  await ensureMembersSeeded();
+
+  const key = memberKey(inputName);
+  const member = await prisma.member.findUnique({
+    where: { key },
+    select: { key: true, name: true },
+  });
+  if (!member) {
+    return NextResponse.json(invalidCredentialsError, { status: 401 });
+  }
+
+  const res = NextResponse.json({
+    ok: true,
+    user: { id: member.key, name: member.name },
+  });
+  res.cookies.set(getSessionCookieName(), createSessionToken(member.key, member.name), {
+    httpOnly: true,
+    secure: true,
+    sameSite: "lax",
+    path: "/",
+    maxAge: getSessionMaxAgeSeconds(),
+  });
+  return res;
+}

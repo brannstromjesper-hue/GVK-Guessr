@@ -1,10 +1,18 @@
 "use client";
 
 import Link from "next/link";
-import { useSession } from "next-auth/react";
+import { useEffect, useState } from "react";
+import { buildApiUrl } from "@/lib/api-url";
 
 export default function Home() {
-  const { status } = useSession();
+  const [status, setStatus] = useState<"loading" | "authenticated" | "unauthenticated">("loading");
+  useEffect(() => {
+    async function loadSession() {
+      const res = await fetch(buildApiUrl("/api/auth/session"));
+      setStatus(res.ok ? "authenticated" : "unauthenticated");
+    }
+    void loadSession();
+  }, []);
   const isAuthenticated = status === "authenticated";
   const ctaHref = isAuthenticated ? "/guess" : "/login";
   const ctaLabel = isAuthenticated ? "Siirry kartalle" : "Kirjaudu arvaamaan";

@@ -1,6 +1,6 @@
-import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
 import { distanceKm, parseTargetCoords, scoreFromDistanceKm } from "@/lib/geo";
+import { getSessionFromCookies } from "@/lib/session";
 import { NextResponse } from "next/server";
 
 const unauthorizedError = { error: "Ei käyttöoikeutta" };
@@ -23,7 +23,7 @@ async function parseGuessBody(req: Request): Promise<{ lat: number; lng: number 
 }
 
 export async function POST(req: Request) {
-  const session = await auth();
+  const session = getSessionFromCookies();
   if (!session?.user?.id) {
     return NextResponse.json(unauthorizedError, { status: 401 });
   }

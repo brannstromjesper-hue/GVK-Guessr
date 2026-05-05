@@ -1,7 +1,6 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { signOut, useSession } from "next-auth/react";
 import { useCallback, useEffect, useState } from "react";
 import { buildApiUrl } from "@/lib/api-url";
 
@@ -22,9 +21,16 @@ type GuessStatusResponse = {
   lat: number | null;
   lng: number | null;
 };
+type SessionResponse = {
+  user: {
+    id: string;
+    name: string;
+  };
+};
 
 export default function GuessPage() {
-  const { data: session, status } = useSession();
+  const [session, setSession] = useState<SessionResponse | null>(null);
+  const [status, setStatus] = useState<"loading" | "authenticated" | "unauthenticated">("loading");
   const [lat, setLat] = useState<number | null>(null);
   const [lng, setLng] = useState<number | null>(null);
   const [hasGuess, setHasGuess] = useState<boolean | null>(null);
@@ -48,12 +54,31 @@ export default function GuessPage() {
     }
   }, []);
 
+  useEffect(() => {
+    async function loadSession() {
+      const res = await fetch(buildApiUrl("/api/auth/session"));
+      if (!res.ok) {
+        setStatus("unauthenticated");
+        return;
+      }
+      const data = (await res.json()) as SessionResponse;
+      setSession(data);
+      setStatus("authenticated");
+    }
+    void loadSession();
+  }, []);
+
   const loadStatus = useCallback(async () => {
     const res = await fetch(buildApiUrl("/api/guess/status"));
     if (!res.ok) return;
     const data = (await res.json()) as GuessStatusResponse;
     applyExistingGuess(data);
   }, [applyExistingGuess]);
+
+  async function handleLogout() {
+    await fetch(buildApiUrl("/api/auth/logout"), { method: "POST" });
+    window.location.href = "/";
+  }
 
   useEffect(() => {
     if (status === "authenticated") void loadStatus();
@@ -105,7 +130,11 @@ export default function GuessPage() {
   }
 
   if (status !== "authenticated") {
-    return null;
+    return (
+      <main className="mx-auto flex max-w-3xl flex-col gap-6 px-4 py-12">
+        <p className="text-zinc-500">Kirjaudu sisään jatkaaksesi.</p>
+      </main>
+    );
   }
 
   const locked = hasGuess === true;
@@ -119,12 +148,12 @@ export default function GuessPage() {
             <span className="mt-1 block">GVK Vuosikokous - Arvaa minne menemme</span>
           </h1>
           <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
-            Kirjautunut: {session.user?.name ?? session.user?.id}
+            Kirjautunut: {session?.user.name ?? session?.user.id}
           </p>
         </div>
         <button
           type="button"
-          onClick={() => void signOut({ callbackUrl: "/" })}
+          onClick={() => void handleLogout()}
           className="rounded-lg border border-zinc-300 px-3 py-1.5 text-sm text-zinc-700 hover:bg-zinc-50 dark:border-zinc-600 dark:text-zinc-200 dark:hover:bg-zinc-800"
         >
           Kirjaudu ulos

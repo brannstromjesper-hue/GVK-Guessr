@@ -1,9 +1,9 @@
-import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
+import { getSessionFromCookies } from "@/lib/session";
 import { NextResponse } from "next/server";
 
 export async function GET() {
-  const session = await auth();
+  const session = getSessionFromCookies();
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Ei käyttöoikeutta" }, { status: 401 });
   }
