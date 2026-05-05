@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { buildApiUrl } from "@/lib/api-url";
 
 type Member = {
   id: string;
@@ -34,7 +35,7 @@ export default function AdminMembersPanel({
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch("/api/admin/members", {
+      const res = await fetch(buildApiUrl("/api/admin/members"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: newName }),
@@ -56,7 +57,7 @@ export default function AdminMembersPanel({
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch("/api/admin/members", {
+      const res = await fetch(buildApiUrl("/api/admin/members"), {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ key: member.key, isAdmin: !member.isAdmin }),
@@ -79,7 +80,7 @@ export default function AdminMembersPanel({
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch("/api/admin/members", {
+      const res = await fetch(buildApiUrl("/api/admin/members"), {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ key: member.key }),

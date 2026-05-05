@@ -3,6 +3,7 @@
 import dynamic from "next/dynamic";
 import { signOut, useSession } from "next-auth/react";
 import { useCallback, useEffect, useState } from "react";
+import { buildApiUrl } from "@/lib/api-url";
 
 const GuessMap = dynamic(() => import("@/components/GuessMap"), {
   ssr: false,
@@ -48,7 +49,7 @@ export default function GuessPage() {
   }, []);
 
   const loadStatus = useCallback(async () => {
-    const res = await fetch("/api/guess/status");
+    const res = await fetch(buildApiUrl("/api/guess/status"));
     if (!res.ok) return;
     const data = (await res.json()) as GuessStatusResponse;
     applyExistingGuess(data);
@@ -73,7 +74,7 @@ export default function GuessPage() {
     setSubmitting(true);
     setError(null);
     try {
-      const res = await fetch("/api/guess", {
+      const res = await fetch(buildApiUrl("/api/guess"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ lat, lng }),

@@ -17,7 +17,7 @@ export default function SiteHeader() {
             alt="Gamlakarleby Vänskapsklubb"
             width={640}
             height={360}
-            className="h-16 w-auto sm:h-20 md:h-24"
+            className="h-20 w-auto sm:h-24 md:h-28"
             priority
             unoptimized
           />

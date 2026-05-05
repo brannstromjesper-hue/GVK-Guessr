@@ -1,12 +1,13 @@
-import Link from "next/link";
-import { auth } from "@/auth";
-import { requireAdminUserKey } from "@/lib/admin-auth";
+"use client";
 
-export default async function Home() {
-  const session = await auth();
-  const showAdmin = (await requireAdminUserKey()) !== null;
-  const ctaHref = session ? "/guess" : "/login";
-  const ctaLabel = session ? "Siirry kartalle" : "Kirjaudu arvaamaan";
+import Link from "next/link";
+import { useSession } from "next-auth/react";
+
+export default function Home() {
+  const { status } = useSession();
+  const isAuthenticated = status === "authenticated";
+  const ctaHref = isAuthenticated ? "/guess" : "/login";
+  const ctaLabel = isAuthenticated ? "Siirry kartalle" : "Kirjaudu arvaamaan";
 
   return (
     <main className="relative flex min-h-0 flex-1 flex-col justify-center overflow-hidden bg-gradient-to-b from-zinc-950 via-zinc-900 to-black px-4 py-16">
@@ -41,7 +42,7 @@ export default async function Home() {
           </Link>
         </div>
 
-        {showAdmin ? (
+        {isAuthenticated ? (
           <p className="text-center text-xs text-zinc-500">
             <Link
               href="/admin"

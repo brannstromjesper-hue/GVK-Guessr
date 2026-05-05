@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { buildApiUrl } from "@/lib/api-url";
 
 type GuessRow = {
   id: string;
@@ -23,7 +24,7 @@ export default function AdminGuessesPanel({ initialGuesses }: Props) {
     setBusyId(guessId);
     setError(null);
     try {
-      const res = await fetch("/api/admin/guesses", {
+      const res = await fetch(buildApiUrl("/api/admin/guesses"), {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ guessId }),

@@ -1,15 +1,75 @@
-import { auth } from "@/auth";
-import { requireAdminUserKey } from "@/lib/admin-auth";
-import prisma from "@/lib/prisma";
+"use client";
+
 import Link from "next/link";
+import { useEffect, useState } from "react";
+import { useSession } from "next-auth/react";
 import AdminMembersPanel from "@/components/AdminMembersPanel";
 import AdminGuessesPanel from "@/components/AdminGuessesPanel";
+import { buildApiUrl } from "@/lib/api-url";
 
-export default async function AdminPage() {
-  const session = await auth();
-  const userKey = await requireAdminUserKey();
+type GuessRow = {
+  id: string;
+  memberName: string;
+  score: number;
+  distanceKm: number;
+  updatedAt: string;
+};
 
-  if (!session?.user?.id || !userKey) {
+type MemberRow = {
+  id: string;
+  key: string;
+  name: string;
+  isAdmin: boolean;
+};
+
+export default function AdminPage() {
+  const { data: session, status } = useSession();
+  const [guesses, setGuesses] = useState<GuessRow[] | null>(null);
+  const [members, setMembers] = useState<MemberRow[] | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (status !== "authenticated") return;
+
+    async function loadAdminData() {
+      setLoadError(null);
+      try {
+        const [guessesRes, membersRes] = await Promise.all([
+          fetch(buildApiUrl("/api/admin/guesses")),
+          fetch(buildApiUrl("/api/admin/members")),
+        ]);
+
+        if (!guessesRes.ok || !membersRes.ok) {
+          throw new Error("Ei käyttöoikeutta");
+        }
+
+        const guessesBody = (await guessesRes.json()) as { guesses?: GuessRow[] };
+        const membersBody = (await membersRes.json()) as { members?: MemberRow[] };
+
+        const localizedGuesses =
+          guessesBody.guesses?.map((g) => ({
+            ...g,
+            updatedAt: new Date(g.updatedAt).toLocaleString("fi-FI"),
+          })) ?? [];
+        setGuesses(localizedGuesses);
+        setMembers(membersBody.members ?? []);
+      } catch (err) {
+        setLoadError(err instanceof Error ? err.message : "Tietojen lataus epäonnistui.");
+      }
+    }
+
+    void loadAdminData();
+  }, [status]);
+
+  if (status === "loading" || (status === "authenticated" && (!guesses || !members) && !loadError)) {
+    return (
+      <main className="mx-auto max-w-lg px-4 py-20 text-center">
+        <p className="text-zinc-600 dark:text-zinc-400">Ladataan…</p>
+      </main>
+    );
+  }
+
+  if (status !== "authenticated" || loadError || !session?.user?.id || !guesses || !members) {
     return (
       <main className="mx-auto max-w-lg px-4 py-20 text-center">
         <h1 className="text-xl font-semibold text-zinc-900 dark:text-zinc-50">
@@ -27,13 +87,6 @@ export default async function AdminPage() {
       </main>
     );
   }
-
-  const guesses = await prisma.guess.findMany({
-    orderBy: [{ score: "desc" }, { distanceKm: "asc" }],
-  });
-  const members = await prisma.member.findMany({
-    orderBy: [{ isAdmin: "desc" }, { name: "asc" }],
-  });
 
   return (
     <main className="mx-auto max-w-4xl px-4 py-10">
@@ -55,13 +108,7 @@ export default async function AdminPage() {
       </header>
 
       <AdminGuessesPanel
-        initialGuesses={guesses.map((g) => ({
-          id: g.id,
-          memberName: g.memberName,
-          score: g.score,
-          distanceKm: g.distanceKm,
-          updatedAt: g.updatedAt.toLocaleString("fi-FI"),
-        }))}
+        initialGuesses={guesses}
       />
 
       <section className="mt-10 rounded-xl border border-zinc-200 p-4 dark:border-zinc-800">
@@ -72,13 +119,8 @@ export default async function AdminPage() {
           Lisää tai poista jäseniä ja valitse kuka on ylläpitäjä.
         </p>
         <AdminMembersPanel
-          initialMembers={members.map((m) => ({
-            id: m.id,
-            name: m.name,
-            key: m.key,
-            isAdmin: m.isAdmin,
-          }))}
-          currentAdminKey={userKey}
+          initialMembers={members}
+          currentAdminKey={session.user.id}
         />
       </section>
     </main>
