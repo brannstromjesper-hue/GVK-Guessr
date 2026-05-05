@@ -23,7 +23,7 @@ async function parseGuessBody(req: Request): Promise<{ lat: number; lng: number 
 }
 
 export async function POST(req: Request) {
-  const session = getSessionFromCookies();
+  const session = await getSessionFromCookies();
   if (!session?.user?.id) {
     return NextResponse.json(unauthorizedError, { status: 401 });
   }

@@ -2,7 +2,7 @@ import { ensureMembersSeeded, isAdminMemberByKey } from "@/lib/member-store";
 import { getSessionFromCookies } from "@/lib/session";
 
 export async function requireAdminUserKey(): Promise<string | null> {
-  const session = getSessionFromCookies();
+  const session = await getSessionFromCookies();
   await ensureMembersSeeded();
 
   const userKey = session?.user?.id;

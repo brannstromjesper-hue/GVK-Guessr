@@ -3,7 +3,7 @@ import { getSessionFromCookies } from "@/lib/session";
 import { NextResponse } from "next/server";
 
 export async function GET() {
-  const session = getSessionFromCookies();
+  const session = await getSessionFromCookies();
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Ei käyttöoikeutta" }, { status: 401 });
   }

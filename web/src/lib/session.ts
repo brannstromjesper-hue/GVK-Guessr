@@ -80,8 +80,9 @@ function parseSessionToken(token: string): AppSession | null {
   };
 }
 
-export function getSessionFromCookies(): AppSession | null {
-  const token = cookies().get(SESSION_COOKIE)?.value;
+export async function getSessionFromCookies(): Promise<AppSession | null> {
+  const cookieStore = await cookies();
+  const token = cookieStore.get(SESSION_COOKIE)?.value;
   if (!token) return null;
   return parseSessionToken(token);
 }
