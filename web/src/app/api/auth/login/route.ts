@@ -2,10 +2,9 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { ensureMembersSeeded, memberKey } from "@/lib/member-store";
 import {
-  createSessionToken,
-  getSessionCookieName,
-  getSessionMaxAgeSeconds,
-  hasSessionSecret,
+  createMemberSession,
+  getMissingSupabaseAuthEnv,
+  setSessionCookies,
 } from "@/lib/session";
 
 const invalidCredentialsError = {
@@ -22,9 +21,10 @@ export async function POST(req: Request) {
       return NextResponse.json(invalidCredentialsError, { status: 401 });
     }
 
-    if (!hasSessionSecret()) {
+    const missingSupabaseEnv = getMissingSupabaseAuthEnv();
+    if (missingSupabaseEnv.length > 0) {
       return NextResponse.json(
-        { error: "Palvelin puuttuu AUTH_SECRET tai NEXTAUTH_SECRET." },
+        { error: `Palvelin puuttuu ${missingSupabaseEnv.join(", ")}.` },
         { status: 500 },
       );
     }
@@ -51,13 +51,7 @@ export async function POST(req: Request) {
       ok: true,
       user: { id: member.key, name: member.name },
     });
-    res.cookies.set(getSessionCookieName(), createSessionToken(member.key, member.name), {
-      httpOnly: true,
-      secure: true,
-      sameSite: "lax",
-      path: "/",
-      maxAge: getSessionMaxAgeSeconds(),
-    });
+    setSessionCookies(res, await createMemberSession(member.key, member.name));
     return res;
   } catch (err) {
     console.error("[auth/login]", err);

@@ -14,28 +14,39 @@ Open [http://localhost:3000](http://localhost:3000).
 ## Environment
 
 1. Copy `.env.example` to `.env`
-2. Fill required values (for example target coordinates and auth secrets)
+2. Fill required values (for example target coordinates and Supabase auth)
 
 `.env` is ignored by git. Only `.env.example` is committed.
 
 ### Deployment
 
-The login API signs the `gvk_session` cookie with `AUTH_SECRET`.
-Set the same `AUTH_SECRET` value in every runtime that can serve `/api/*`
-requests (for example both Vercel and Railway if both deployments are active).
-The code also accepts the legacy `NEXTAUTH_SECRET` variable, but `AUTH_SECRET`
-is preferred for new deployments.
+The login API uses Supabase Auth to issue the app session. The app still checks
+the local `Member` table first, then creates/updates a matching Supabase Auth
+user and stores Supabase access/refresh tokens in HTTP-only cookies.
 
-Generate a value with:
+Set these variables in every runtime that can serve `/api/*` requests (for
+example Railway, and Vercel too if Vercel API routes remain active):
+
+- `SUPABASE_URL`: Supabase Project URL.
+- `SUPABASE_ANON_KEY`: Supabase anon public key. Kept server-side here, but it
+  is safe to expose if a browser client is added later.
+- `SUPABASE_SERVICE_ROLE_KEY`: Supabase service-role key. Keep this secret; it
+  is used only server-side to create/update app member auth users.
+- `SUPABASE_MEMBER_PASSWORD_SECRET`: app-owned random secret used to derive a
+  stable Supabase password per member.
+- `SUPABASE_AUTH_EMAIL_DOMAIN` (optional): domain for synthetic member emails;
+  defaults to `auth.gvk-guessr.local`.
+
+Generate `SUPABASE_MEMBER_PASSWORD_SECRET` with:
 
 ```bash
 openssl rand -base64 32
 ```
 
-If `/api/auth/login` returns `{"error":"Palvelin puuttuu AUTH_SECRET..."}`,
-the API runtime that handled the request is missing both `AUTH_SECRET` and
-`NEXTAUTH_SECRET`. After setting the secret, also ensure that runtime has
-`DATABASE_URL` and the member/admin seed variables it needs.
+If `/api/auth/login` returns `{"error":"Palvelin puuttuu SUPABASE_..."}`, the
+API runtime that handled the request is missing one of the Supabase auth
+variables above. After setting those, also ensure that runtime has `DATABASE_URL`
+and the member/admin seed variables it needs.
 
 ## GitHub upload (first push)
 
