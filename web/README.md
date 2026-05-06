@@ -20,9 +20,10 @@ Open [http://localhost:3000](http://localhost:3000).
 
 ### Deployment
 
-The login API uses the Supabase `public.members` table as the member source of
-truth. Supabase Auth is used only to issue sessions, and the app stores
-Supabase access/refresh tokens in HTTP-only cookies.
+The app uses Supabase tables for game data. The `public.members` table is the
+member source of truth, and `public.guesses` stores submitted map pins.
+Supabase Auth is used only to issue sessions, and the app stores Supabase
+access/refresh tokens in HTTP-only cookies.
 
 Set these variables in every runtime that can serve `/api/*` requests (for
 example Railway, and Vercel too if Vercel API routes remain active):
@@ -31,8 +32,8 @@ example Railway, and Vercel too if Vercel API routes remain active):
 - `SUPABASE_ANON_KEY`: Supabase anon public key. Kept server-side here, but it
   is safe to expose if a browser client is added later.
 - `SUPABASE_SERVICE_ROLE_KEY`: Supabase service-role key. Keep this secret; it
-  is used only server-side to read/write `public.members` and sync hidden auth
-  users for sessions.
+  is used only server-side to read/write `public.members` and `public.guesses`,
+  and to sync hidden auth users for sessions.
 - `SUPABASE_MEMBER_PASSWORD_SECRET`: app-owned random secret used to derive a
   stable Supabase password per member.
 - `SUPABASE_AUTH_EMAIL_DOMAIN` (optional): domain for synthetic member emails;
@@ -46,8 +47,8 @@ openssl rand -base64 32
 
 If `/api/auth/login` returns `{"error":"Palvelin puuttuu SUPABASE_..."}`, the
 API runtime that handled the request is missing one of the Supabase auth
-variables above. After setting those, also ensure that runtime has `DATABASE_URL`
-for guesses and the target coordinate variables it needs.
+variables above. After setting those, also ensure that runtime has the target
+coordinate variables it needs.
 
 #### Supabase members table
 
@@ -58,6 +59,19 @@ to the Supabase project. It creates `public.members` with these columns:
 - `key`: normalized login name, unique
 - `name`: display name
 - `is_admin`: admin flag
+- `created_at` / `updated_at`
+
+#### Supabase guesses table
+
+Apply the SQL migration in `supabase/migrations/20260506073900_create_guesses_table.sql`
+to the Supabase project. It creates `public.guesses` with these columns:
+
+- `id`: UUID primary key
+- `member_key`: normalized member key, unique so each member can answer once
+- `member_name`: display name at submit time
+- `lat` / `lng`: clicked map coordinates
+- `distance_km`: calculated distance from `REAL_LAT` / `REAL_LNG`
+- `score`: calculated score
 - `created_at` / `updated_at`
 
 #### First admin user

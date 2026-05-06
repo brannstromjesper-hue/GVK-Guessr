@@ -1,5 +1,5 @@
-import prisma from "@/lib/prisma";
 import { distanceKm, parseTargetCoords, scoreFromDistanceKm } from "@/lib/geo";
+import { createGuess, findGuessByMemberKey } from "@/lib/guess-store";
 import { getSessionFromCookies } from "@/lib/session";
 import { NextResponse } from "next/server";
 
@@ -43,9 +43,7 @@ export async function POST(req: Request) {
   if (!parsed) return NextResponse.json(invalidRequestError, { status: 400 });
   const { lat, lng } = parsed;
 
-  const existing = await prisma.guess.findUnique({
-    where: { memberKey: session.user.id },
-  });
+  const existing = await findGuessByMemberKey(session.user.id);
   if (existing) {
     return NextResponse.json(
       { error: "Olet jo lähettänyt arvauksen." },
@@ -56,16 +54,20 @@ export async function POST(req: Request) {
   const d = distanceKm(lat, lng, target.lat, target.lng);
   const score = scoreFromDistanceKm(d);
 
-  await prisma.guess.create({
-    data: {
-      memberKey: session.user.id,
-      memberName: session.user.name,
-      lat,
-      lng,
-      distanceKm: d,
-      score,
-    },
+  const result = await createGuess({
+    memberKey: session.user.id,
+    memberName: session.user.name,
+    lat,
+    lng,
+    distanceKm: d,
+    score,
   });
+  if (result === "duplicate") {
+    return NextResponse.json(
+      { error: "Olet jo lähettänyt arvauksen." },
+      { status: 409 },
+    );
+  }
 
   return NextResponse.json({ ok: true });
 }
