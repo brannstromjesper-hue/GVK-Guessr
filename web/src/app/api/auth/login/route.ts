@@ -1,10 +1,9 @@
 import { NextResponse } from "next/server";
-import prisma from "@/lib/prisma";
-import { ensureMembersSeeded, memberKey } from "@/lib/member-store";
+import { findMemberByKey, memberKey } from "@/lib/member-store";
 import {
-  createSessionToken,
-  getSessionCookieName,
-  getSessionMaxAgeSeconds,
+  createMemberSession,
+  getMissingSupabaseAuthEnv,
+  setSessionCookies,
 } from "@/lib/session";
 
 const invalidCredentialsError = {
@@ -21,27 +20,16 @@ export async function POST(req: Request) {
       return NextResponse.json(invalidCredentialsError, { status: 401 });
     }
 
-    if (!process.env.AUTH_SECRET?.trim()) {
+    const missingSupabaseEnv = getMissingSupabaseAuthEnv();
+    if (missingSupabaseEnv.length > 0) {
       return NextResponse.json(
-        { error: "Palvelin puuttuu AUTH_SECRET." },
+        { error: `Palvelin puuttuu ${missingSupabaseEnv.join(", ")}.` },
         { status: 500 },
       );
     }
-
-    if (!process.env.DATABASE_URL?.trim()) {
-      return NextResponse.json(
-        { error: "Palvelin puuttuu DATABASE_URL." },
-        { status: 500 },
-      );
-    }
-
-    await ensureMembersSeeded();
 
     const key = memberKey(inputName);
-    const member = await prisma.member.findUnique({
-      where: { key },
-      select: { key: true, name: true },
-    });
+    const member = await findMemberByKey(key);
     if (!member) {
       return NextResponse.json(invalidCredentialsError, { status: 401 });
     }
@@ -50,13 +38,7 @@ export async function POST(req: Request) {
       ok: true,
       user: { id: member.key, name: member.name },
     });
-    res.cookies.set(getSessionCookieName(), createSessionToken(member.key, member.name), {
-      httpOnly: true,
-      secure: true,
-      sameSite: "lax",
-      path: "/",
-      maxAge: getSessionMaxAgeSeconds(),
-    });
+    setSessionCookies(res, await createMemberSession(member));
     return res;
   } catch (err) {
     console.error("[auth/login]", err);

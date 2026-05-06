@@ -27,16 +27,6 @@ export async function POST(req: Request) {
   if (!session?.user?.id) {
     return NextResponse.json(unauthorizedError, { status: 401 });
   }
-  const member = await prisma.member.findUnique({
-    where: { key: session.user.id },
-    select: { name: true },
-  });
-  if (!member) {
-    return NextResponse.json(
-      { error: "Et ole jäsenlistalla." },
-      { status: 403 },
-    );
-  }
 
   const target = parseTargetCoords();
   if (!target) {
@@ -65,12 +55,11 @@ export async function POST(req: Request) {
 
   const d = distanceKm(lat, lng, target.lat, target.lng);
   const score = scoreFromDistanceKm(d);
-  const memberName = member.name;
 
   await prisma.guess.create({
     data: {
       memberKey: session.user.id,
-      memberName,
+      memberName: session.user.name,
       lat,
       lng,
       distanceKm: d,

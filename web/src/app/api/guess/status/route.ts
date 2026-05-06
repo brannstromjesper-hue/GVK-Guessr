@@ -7,13 +7,6 @@ export async function GET() {
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Ei käyttöoikeutta" }, { status: 401 });
   }
-  const member = await prisma.member.findUnique({
-    where: { key: session.user.id },
-    select: { key: true },
-  });
-  if (!member) {
-    return NextResponse.json({ error: "Ei käyttöoikeutta" }, { status: 403 });
-  }
 
   const guess = await prisma.guess.findUnique({
     where: { memberKey: session.user.id },
