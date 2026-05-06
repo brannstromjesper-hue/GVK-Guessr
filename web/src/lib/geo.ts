@@ -23,10 +23,3 @@ export function distanceKm(
 export function scoreFromDistanceKm(distanceKm: number): number {
   return Math.max(0, Math.round(5000 / (1 + distanceKm)));
 }
-
-export function parseTargetCoords(): { lat: number; lng: number } | null {
-  const lat = Number(process.env.REAL_LAT);
-  const lng = Number(process.env.REAL_LNG);
-  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
-  return { lat, lng };
-}

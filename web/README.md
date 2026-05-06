@@ -14,16 +14,17 @@ Open [http://localhost:3000](http://localhost:3000).
 ## Environment
 
 1. Copy `.env.example` to `.env`
-2. Fill required values (for example target coordinates and Supabase auth)
+2. Fill required values (for example Supabase auth)
 
 `.env` is ignored by git. Only `.env.example` is committed.
 
 ### Deployment
 
 The app uses Supabase tables for game data. The `public.members` table is the
-member source of truth, and `public.guesses` stores submitted map pins.
-Supabase Auth is used only to issue sessions, and the app stores Supabase
-access/refresh tokens in HTTP-only cookies.
+member source of truth, `public.guesses` stores submitted map pins, and
+`public.game_settings` stores the correct target coordinates. Supabase Auth is
+used only to issue sessions, and the app stores Supabase access/refresh tokens
+in HTTP-only cookies.
 
 Set these variables in every runtime that can serve `/api/*` requests (for
 example Railway, and Vercel too if Vercel API routes remain active):
@@ -47,8 +48,7 @@ openssl rand -base64 32
 
 If `/api/auth/login` returns `{"error":"Palvelin puuttuu SUPABASE_..."}`, the
 API runtime that handled the request is missing one of the Supabase auth
-variables above. After setting those, also ensure that runtime has the target
-coordinate variables it needs.
+variables above.
 
 #### Supabase members table
 
@@ -70,9 +70,31 @@ to the Supabase project. It creates `public.guesses` with these columns:
 - `member_key`: normalized member key, unique so each member can answer once
 - `member_name`: display name at submit time
 - `lat` / `lng`: clicked map coordinates
-- `distance_km`: calculated distance from `REAL_LAT` / `REAL_LNG`
+- `distance_km`: calculated distance from `public.game_settings.target_lat` /
+  `public.game_settings.target_lng`
 - `score`: calculated score
 - `created_at` / `updated_at`
+
+#### Supabase game settings table
+
+Apply the SQL migration in `supabase/migrations/20260506074700_create_game_settings_table.sql`
+to the Supabase project. It creates `public.game_settings` with one row named
+`default`:
+
+- `key`: settings row key, currently `default`
+- `target_lat` / `target_lng`: correct destination coordinates
+- `updated_at`
+
+Set or update the target with:
+
+```sql
+insert into public.game_settings (key, target_lat, target_lng)
+values ('default', 60.1699, 24.9384)
+on conflict (key) do update
+set
+  target_lat = excluded.target_lat,
+  target_lng = excluded.target_lng;
+```
 
 #### First admin user
 
