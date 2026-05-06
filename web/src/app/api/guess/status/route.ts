@@ -1,4 +1,4 @@
-import prisma from "@/lib/prisma";
+import { findGuessByMemberKey } from "@/lib/guess-store";
 import { getSessionFromCookies } from "@/lib/session";
 import { NextResponse } from "next/server";
 
@@ -8,10 +8,7 @@ export async function GET() {
     return NextResponse.json({ error: "Ei käyttöoikeutta" }, { status: 401 });
   }
 
-  const guess = await prisma.guess.findUnique({
-    where: { memberKey: session.user.id },
-    select: { id: true, lat: true, lng: true },
-  });
+  const guess = await findGuessByMemberKey(session.user.id);
 
   return NextResponse.json({
     hasGuess: !!guess,

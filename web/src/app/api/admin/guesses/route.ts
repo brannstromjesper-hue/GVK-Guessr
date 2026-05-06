@@ -1,5 +1,5 @@
 import { requireAdminUserKey } from "@/lib/admin-auth";
-import prisma from "@/lib/prisma";
+import { deleteGuessById, getGuessById, listGuesses } from "@/lib/guess-store";
 import { NextResponse } from "next/server";
 
 function parseGuessId(body: { guessId?: string }): string {
@@ -12,9 +12,7 @@ export async function GET() {
     return NextResponse.json({ error: "Ei käyttöoikeutta" }, { status: 403 });
   }
 
-  const guesses = await prisma.guess.findMany({
-    orderBy: [{ score: "desc" }, { distanceKm: "asc" }],
-  });
+  const guesses = await listGuesses();
 
   return NextResponse.json({
     guesses: guesses.map((g) => ({
@@ -22,7 +20,7 @@ export async function GET() {
       memberName: g.memberName,
       score: g.score,
       distanceKm: g.distanceKm,
-      updatedAt: g.updatedAt.toISOString(),
+      updatedAt: g.updatedAt,
     })),
   });
 }
@@ -39,14 +37,11 @@ export async function DELETE(req: Request) {
     return NextResponse.json({ error: "Arvauksen tunniste puuttuu." }, { status: 400 });
   }
 
-  const existing = await prisma.guess.findUnique({
-    where: { id: guessId },
-    select: { id: true },
-  });
+  const existing = await getGuessById(guessId);
   if (!existing) {
     return NextResponse.json({ error: "Arvausta ei löytynyt." }, { status: 404 });
   }
 
-  await prisma.guess.delete({ where: { id: guessId } });
+  await deleteGuessById(guessId);
   return NextResponse.json({ ok: true });
 }
