@@ -5,6 +5,7 @@ import {
   createSessionToken,
   getSessionCookieName,
   getSessionMaxAgeSeconds,
+  hasSessionSecret,
 } from "@/lib/session";
 
 const invalidCredentialsError = {
@@ -21,9 +22,9 @@ export async function POST(req: Request) {
       return NextResponse.json(invalidCredentialsError, { status: 401 });
     }
 
-    if (!process.env.AUTH_SECRET?.trim()) {
+    if (!hasSessionSecret()) {
       return NextResponse.json(
-        { error: "Palvelin puuttuu AUTH_SECRET." },
+        { error: "Palvelin puuttuu AUTH_SECRET tai NEXTAUTH_SECRET." },
         { status: 500 },
       );
     }

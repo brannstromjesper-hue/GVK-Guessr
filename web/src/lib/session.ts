@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 
 const SESSION_COOKIE = "gvk_session";
 const SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 14;
+const SESSION_SECRET_ENV_NAMES = ["AUTH_SECRET", "NEXTAUTH_SECRET"] as const;
 
 type SessionPayload = {
   sub: string;
@@ -25,16 +26,30 @@ function base64UrlDecode(value: string): string {
   return Buffer.from(value, "base64url").toString("utf8");
 }
 
-function getSecret(): string {
-  const secret = process.env.AUTH_SECRET?.trim();
+export function getSessionSecret(): string | null {
+  for (const name of SESSION_SECRET_ENV_NAMES) {
+    const secret = process.env[name]?.trim();
+    if (secret) return secret;
+  }
+  return null;
+}
+
+export function hasSessionSecret(): boolean {
+  return getSessionSecret() !== null;
+}
+
+function getRequiredSessionSecret(): string {
+  const secret = getSessionSecret();
   if (!secret) {
-    throw new Error("AUTH_SECRET is required");
+    throw new Error("AUTH_SECRET or NEXTAUTH_SECRET is required");
   }
   return secret;
 }
 
 function signPayload(payloadBase64: string): string {
-  return createHmac("sha256", getSecret()).update(payloadBase64).digest("base64url");
+  return createHmac("sha256", getRequiredSessionSecret())
+    .update(payloadBase64)
+    .digest("base64url");
 }
 
 export function createSessionToken(userId: string, userName: string): string {

@@ -18,6 +18,25 @@ Open [http://localhost:3000](http://localhost:3000).
 
 `.env` is ignored by git. Only `.env.example` is committed.
 
+### Deployment
+
+The login API signs the `gvk_session` cookie with `AUTH_SECRET`.
+Set the same `AUTH_SECRET` value in every runtime that can serve `/api/*`
+requests (for example both Vercel and Railway if both deployments are active).
+The code also accepts the legacy `NEXTAUTH_SECRET` variable, but `AUTH_SECRET`
+is preferred for new deployments.
+
+Generate a value with:
+
+```bash
+openssl rand -base64 32
+```
+
+If `/api/auth/login` returns `{"error":"Palvelin puuttuu AUTH_SECRET..."}`,
+the API runtime that handled the request is missing both `AUTH_SECRET` and
+`NEXTAUTH_SECRET`. After setting the secret, also ensure that runtime has
+`DATABASE_URL` and the member/admin seed variables it needs.
+
 ## GitHub upload (first push)
 
 Run in `web/` after installing Git:
