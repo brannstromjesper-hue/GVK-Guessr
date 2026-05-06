@@ -18,6 +18,8 @@ export async function GET() {
     guesses: guesses.map((g) => ({
       id: g.id,
       memberName: g.memberName,
+      lat: g.lat,
+      lng: g.lng,
       score: g.score,
       distanceKm: g.distanceKm,
       updatedAt: g.updatedAt,

@@ -1,14 +1,26 @@
 "use client";
 
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { useEffect, useState } from "react";
 import AdminMembersPanel from "@/components/AdminMembersPanel";
 import AdminGuessesPanel from "@/components/AdminGuessesPanel";
 import { buildApiUrl } from "@/lib/api-url";
 
+const AdminGuessesMap = dynamic(() => import("@/components/AdminGuessesMap"), {
+  ssr: false,
+  loading: () => (
+    <div className="flex h-[420px] w-full items-center justify-center rounded-xl border border-zinc-200 bg-zinc-50 text-zinc-500 dark:border-zinc-800 dark:bg-zinc-900">
+      Ladataan karttaa…
+    </div>
+  ),
+});
+
 type GuessRow = {
   id: string;
   memberName: string;
+  lat: number;
+  lng: number;
   score: number;
   distanceKm: number;
   updatedAt: string;
@@ -115,9 +127,29 @@ export default function AdminPage() {
         </Link>
       </header>
 
-      <AdminGuessesPanel
-        initialGuesses={guesses}
-      />
+      <section className="space-y-4">
+        <div>
+          <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">
+            Arvausten kartta
+          </h2>
+          <p className="mt-1 text-sm text-zinc-500">
+            Jokainen merkki näyttää yhden jäsenen arvaaman sijainnin.
+          </p>
+        </div>
+        <AdminGuessesMap guesses={guesses} />
+      </section>
+
+      <section className="mt-10">
+        <h2 className="mb-4 text-lg font-semibold text-zinc-900 dark:text-zinc-100">
+          Arvauslista
+        </h2>
+        <AdminGuessesPanel
+          guesses={guesses}
+          onGuessRemoved={(guessId) =>
+            setGuesses((prev) => prev?.filter((guess) => guess.id !== guessId) ?? prev)
+          }
+        />
+      </section>
 
       <section className="mt-10 rounded-xl border border-zinc-200 p-4 dark:border-zinc-800">
         <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">
