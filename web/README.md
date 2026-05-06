@@ -20,9 +20,9 @@ Open [http://localhost:3000](http://localhost:3000).
 
 ### Deployment
 
-The login API uses Supabase Auth to issue the app session. The app still checks
-the local `Member` table first, then creates/updates a matching Supabase Auth
-user and stores Supabase access/refresh tokens in HTTP-only cookies.
+The login API uses Supabase Auth as the member source of truth and session
+issuer. Members are Supabase Auth users with app metadata, and the app stores
+Supabase access/refresh tokens in HTTP-only cookies.
 
 Set these variables in every runtime that can serve `/api/*` requests (for
 example Railway, and Vercel too if Vercel API routes remain active):
@@ -31,7 +31,7 @@ example Railway, and Vercel too if Vercel API routes remain active):
 - `SUPABASE_ANON_KEY`: Supabase anon public key. Kept server-side here, but it
   is safe to expose if a browser client is added later.
 - `SUPABASE_SERVICE_ROLE_KEY`: Supabase service-role key. Keep this secret; it
-  is used only server-side to create/update app member auth users.
+  is used only server-side to list/create/update/delete member auth users.
 - `SUPABASE_MEMBER_PASSWORD_SECRET`: app-owned random secret used to derive a
   stable Supabase password per member.
 - `SUPABASE_AUTH_EMAIL_DOMAIN` (optional): domain for synthetic member emails;
@@ -46,7 +46,27 @@ openssl rand -base64 32
 If `/api/auth/login` returns `{"error":"Palvelin puuttuu SUPABASE_..."}`, the
 API runtime that handled the request is missing one of the Supabase auth
 variables above. After setting those, also ensure that runtime has `DATABASE_URL`
-and the member/admin seed variables it needs.
+for guesses and the target coordinate variables it needs.
+
+#### First admin user
+
+There is no `MEMBERS`/`ADMIN_NAMES` environment seeding anymore. Create the
+first admin in Supabase Dashboard under Authentication > Users:
+
+1. Add a user with any email and password, and mark the email confirmed.
+2. Set Raw User Meta Data to:
+
+```json
+{
+  "app_member_key": "teppo",
+  "name": "Teppo",
+  "is_admin": true
+}
+```
+
+Use the same normalized key that the app uses for login names: lowercase,
+trimmed, and repeated spaces collapsed. After the first admin can log in, use
+the app's admin page to manage the rest of the members in Supabase Auth.
 
 ## GitHub upload (first push)
 

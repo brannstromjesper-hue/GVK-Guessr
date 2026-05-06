@@ -1,6 +1,13 @@
 import { requireAdminUserKey } from "@/lib/admin-auth";
-import { memberKey } from "@/lib/member-store";
-import prisma from "@/lib/prisma";
+import {
+  countAdminMembers,
+  createMember,
+  deleteMemberByKey,
+  findMemberByKey,
+  listMembers,
+  memberKey,
+  updateMemberAdmin,
+} from "@/lib/member-store";
 import { NextResponse } from "next/server";
 
 function forbiddenResponse() {
@@ -18,10 +25,7 @@ export async function GET() {
   const authResult = await requireAdminOrForbidden();
   if ("response" in authResult) return authResult.response;
 
-  const members = await prisma.member.findMany({
-    orderBy: [{ isAdmin: "desc" }, { name: "asc" }],
-  });
-  return NextResponse.json({ members });
+  return NextResponse.json({ members: await listMembers() });
 }
 
 export async function POST(req: Request) {
@@ -34,14 +38,11 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Nimi vaaditaan" }, { status: 400 });
 
   const key = memberKey(name);
-  const existing = await prisma.member.findUnique({ where: { key } });
+  const existing = await findMemberByKey(key);
   if (existing)
     return NextResponse.json({ error: "Jäsen on jo olemassa" }, { status: 409 });
 
-  const member = await prisma.member.create({
-    data: { name, key, isAdmin: false },
-  });
-  return NextResponse.json({ member });
+  return NextResponse.json({ member: await createMember(name) });
 }
 
 export async function PATCH(req: Request) {
@@ -65,11 +66,8 @@ export async function PATCH(req: Request) {
   }
 
   if (!body.isAdmin) {
-    const adminCount = await prisma.member.count({ where: { isAdmin: true } });
-    const target = await prisma.member.findUnique({
-      where: { key },
-      select: { isAdmin: true },
-    });
+    const adminCount = await countAdminMembers();
+    const target = await findMemberByKey(key);
     if (target?.isAdmin && adminCount <= 1) {
       return NextResponse.json(
         { error: "Vähintään yksi ylläpitäjä pitää olla." },
@@ -78,10 +76,10 @@ export async function PATCH(req: Request) {
     }
   }
 
-  const member = await prisma.member.update({
-    where: { key },
-    data: { isAdmin: body.isAdmin },
-  });
+  const member = await updateMemberAdmin(key, body.isAdmin);
+  if (!member) {
+    return NextResponse.json({ error: "Jäsentä ei löytynyt" }, { status: 404 });
+  }
   return NextResponse.json({ member });
 }
 
@@ -101,14 +99,11 @@ export async function DELETE(req: Request) {
     );
   }
 
-  const target = await prisma.member.findUnique({
-    where: { key },
-    select: { isAdmin: true },
-  });
+  const target = await findMemberByKey(key);
   if (!target)
     return NextResponse.json({ error: "Jäsentä ei löytynyt" }, { status: 404 });
   if (target.isAdmin) {
-    const adminCount = await prisma.member.count({ where: { isAdmin: true } });
+    const adminCount = await countAdminMembers();
     if (adminCount <= 1) {
       return NextResponse.json(
         { error: "Vähintään yksi ylläpitäjä pitää olla." },
@@ -117,6 +112,6 @@ export async function DELETE(req: Request) {
     }
   }
 
-  await prisma.member.delete({ where: { key } });
+  await deleteMemberByKey(key);
   return NextResponse.json({ ok: true });
 }

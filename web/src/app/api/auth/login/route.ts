@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-import prisma from "@/lib/prisma";
-import { ensureMembersSeeded, memberKey } from "@/lib/member-store";
+import { findMemberByKey, memberKey } from "@/lib/member-store";
 import {
   createMemberSession,
   getMissingSupabaseAuthEnv,
@@ -29,20 +28,8 @@ export async function POST(req: Request) {
       );
     }
 
-    if (!process.env.DATABASE_URL?.trim()) {
-      return NextResponse.json(
-        { error: "Palvelin puuttuu DATABASE_URL." },
-        { status: 500 },
-      );
-    }
-
-    await ensureMembersSeeded();
-
     const key = memberKey(inputName);
-    const member = await prisma.member.findUnique({
-      where: { key },
-      select: { key: true, name: true },
-    });
+    const member = await findMemberByKey(key);
     if (!member) {
       return NextResponse.json(invalidCredentialsError, { status: 401 });
     }
@@ -51,7 +38,7 @@ export async function POST(req: Request) {
       ok: true,
       user: { id: member.key, name: member.name },
     });
-    setSessionCookies(res, await createMemberSession(member.key, member.name));
+    setSessionCookies(res, await createMemberSession(member));
     return res;
   } catch (err) {
     console.error("[auth/login]", err);
