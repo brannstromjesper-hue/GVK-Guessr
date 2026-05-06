@@ -1,4 +1,5 @@
-import { distanceKm, parseTargetCoords, scoreFromDistanceKm } from "@/lib/geo";
+import { getTargetCoords } from "@/lib/game-settings-store";
+import { distanceKm, scoreFromDistanceKm } from "@/lib/geo";
 import { createGuess, findGuessByMemberKey } from "@/lib/guess-store";
 import { getSessionFromCookies } from "@/lib/session";
 import { NextResponse } from "next/server";
@@ -28,12 +29,12 @@ export async function POST(req: Request) {
     return NextResponse.json(unauthorizedError, { status: 401 });
   }
 
-  const target = parseTargetCoords();
+  const target = await getTargetCoords();
   if (!target) {
     return NextResponse.json(
       {
         error:
-          "Palvelinta ei ole määritetty REAL_LAT- ja REAL_LNG-arvoilla.",
+          "Kohdekoordinaatteja ei ole määritetty Supabase game_settings -taulussa.",
       },
       { status: 500 },
     );
