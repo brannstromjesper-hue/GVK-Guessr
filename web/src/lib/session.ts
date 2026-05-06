@@ -1,13 +1,17 @@
 import { cookies } from "next/headers";
-import type { Session } from "@supabase/supabase-js";
+import type { Session, User } from "@supabase/supabase-js";
 import type { NextResponse } from "next/server";
 import {
-  getAppMemberFromUser,
+  findSupabaseUserByEmail,
+  findSupabaseUserByMemberKey,
+  getMemberAuthEmail,
+  getMemberMetadataFromUser,
   getMemberPassword,
   getMissingSupabaseAuthEnv,
   getSupabaseClients,
 } from "@/lib/supabase-auth";
 import type { AppMember } from "@/lib/supabase-auth";
+import { findMemberByKey } from "@/lib/member-store";
 
 export type AppSession = {
   user: {
@@ -23,8 +27,7 @@ const REFRESH_TOKEN_MAX_AGE_SECONDS = 60 * 60 * 24 * 14;
 
 export { getMissingSupabaseAuthEnv };
 
-function getAppSessionFromMember(member: AppMember | null): AppSession | null {
-  if (!member) return null;
+function getAppSessionFromMember(member: AppMember): AppSession {
   return {
     user: {
       id: member.key,
@@ -34,35 +37,60 @@ function getAppSessionFromMember(member: AppMember | null): AppSession | null {
   };
 }
 
-export async function createMemberSession(member: AppMember): Promise<Session> {
-  const { auth, admin } = getSupabaseClients();
+async function getCurrentMemberFromUserToken(
+  user: User | null,
+): Promise<AppMember | null> {
+  const metadata = getMemberMetadataFromUser(user);
+  if (!metadata) return null;
+  return findMemberByKey(metadata.key);
+}
+
+async function ensureSupabaseAuthUserForMember(member: AppMember): Promise<{
+  email: string;
+  password: string;
+}> {
+  const { admin } = getSupabaseClients();
+  const email = getMemberAuthEmail(member.key);
   const password = getMemberPassword(member.key);
   const userMetadata = {
     app_member_key: member.key,
     name: member.name,
     is_admin: member.isAdmin,
   };
+  const existingUser =
+    (await findSupabaseUserByMemberKey(member.key)) ?? (await findSupabaseUserByEmail(email));
 
-  if (!member.email) {
-    throw new Error("Supabase member user is missing email");
+  if (!existingUser) {
+    const { error } = await admin.auth.admin.createUser({
+      email,
+      password,
+      email_confirm: true,
+      user_metadata: userMetadata,
+    });
+    if (error && !error.message.toLowerCase().includes("already")) {
+      throw error;
+    }
+    return { email, password };
   }
 
-  // The app owns login, so keep the hidden Supabase password in sync with the member key.
-  const updateResult = await admin.auth.admin.updateUserById(member.id, {
+  const loginEmail = existingUser.email ?? email;
+  const { error } = await admin.auth.admin.updateUserById(existingUser.id, {
     password,
     user_metadata: userMetadata,
   });
-  if (updateResult.error) throw updateResult.error;
+  if (error) throw error;
 
-  let result = await auth.auth.signInWithPassword({ email: member.email, password });
+  return { email: loginEmail, password };
+}
+
+export async function createMemberSession(member: AppMember): Promise<Session> {
+  const { auth } = getSupabaseClients();
+  const { email, password } = await ensureSupabaseAuthUserForMember(member);
+
+  let result = await auth.auth.signInWithPassword({ email, password });
   if (result.error) {
-    const { error } = await admin.auth.admin.updateUserById(member.id, {
-      password,
-      user_metadata: userMetadata,
-    });
-    if (error) throw error;
-
-    result = await auth.auth.signInWithPassword({ email: member.email, password });
+    const retryCredentials = await ensureSupabaseAuthUserForMember(member);
+    result = await auth.auth.signInWithPassword(retryCredentials);
   }
 
   if (result.error || !result.data.session) {
@@ -117,8 +145,8 @@ export async function getSessionFromCookies(): Promise<AppSession | null> {
   const { auth } = getSupabaseClients();
   if (accessToken) {
     const { data } = await auth.auth.getUser(accessToken);
-    const appSession = getAppSessionFromMember(getAppMemberFromUser(data.user));
-    if (appSession) return appSession;
+    const member = await getCurrentMemberFromUserToken(data.user);
+    if (member) return getAppSessionFromMember(member);
   }
 
   if (!refreshToken) return null;
@@ -127,5 +155,6 @@ export async function getSessionFromCookies(): Promise<AppSession | null> {
   if (error || !data.session) return null;
 
   setSessionCookiesFromTokens(cookieStore, data.session);
-  return getAppSessionFromMember(getAppMemberFromUser(data.session.user));
+  const member = await getCurrentMemberFromUserToken(data.session.user);
+  return member ? getAppSessionFromMember(member) : null;
 }

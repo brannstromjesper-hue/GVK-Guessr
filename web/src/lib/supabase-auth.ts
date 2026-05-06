@@ -22,7 +22,6 @@ export type AppMember = {
   key: string;
   name: string;
   isAdmin: boolean;
-  email: string | null;
 };
 
 let cachedClients: SupabaseClients | null = null;
@@ -80,22 +79,31 @@ export function getMemberPassword(memberKey: string): string {
     .digest("base64url");
 }
 
-export function getAppMemberFromUser(user: User | null): AppMember | null {
+export type SupabaseMemberRow = {
+  id: string;
+  key: string;
+  name: string;
+  is_admin: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+export function getMemberMetadataFromUser(
+  user: User | null,
+): Pick<AppMember, "key" | "name" | "isAdmin"> | null {
   const userMetadata = user?.user_metadata as Record<string, unknown> | undefined;
   const memberKey =
     typeof userMetadata?.app_member_key === "string" ? userMetadata.app_member_key : null;
   const memberName = typeof userMetadata?.name === "string" ? userMetadata.name : null;
 
-  if (!user?.id || !memberKey || !memberName) {
+  if (!memberKey || !memberName) {
     return null;
   }
 
   return {
-    id: user.id,
     key: memberKey,
     name: memberName,
     isAdmin: userMetadata?.is_admin === true,
-    email: user.email ?? null,
   };
 }
 
@@ -115,6 +123,12 @@ export async function findSupabaseUserByMemberKey(memberKey: string): Promise<Us
   }
 
   return null;
+}
+
+export async function findSupabaseUserByEmail(email: string): Promise<User | null> {
+  const normalizedEmail = email.toLowerCase();
+  const users = await listSupabaseAuthUsers();
+  return users.find((user) => user.email?.toLowerCase() === normalizedEmail) ?? null;
 }
 
 export async function listSupabaseAuthUsers(): Promise<User[]> {
