@@ -3,20 +3,22 @@
 import { useState } from "react";
 import { buildApiUrl } from "@/lib/api-url";
 
-type GuessRow = {
+export type AdminGuessRow = {
   id: string;
   memberName: string;
+  lat: number;
+  lng: number;
   score: number;
   distanceKm: number;
   updatedAt: string;
 };
 
 type Props = {
-  initialGuesses: GuessRow[];
+  guesses: AdminGuessRow[];
+  onGuessRemoved: (guessId: string) => void;
 };
 
-export default function AdminGuessesPanel({ initialGuesses }: Props) {
-  const [guesses, setGuesses] = useState(initialGuesses);
+export default function AdminGuessesPanel({ guesses, onGuessRemoved }: Props) {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -31,7 +33,7 @@ export default function AdminGuessesPanel({ initialGuesses }: Props) {
       });
       const data = (await res.json().catch(() => ({}))) as { error?: string };
       if (!res.ok) throw new Error(data.error ?? "Arvauksen poistaminen epäonnistui.");
-      setGuesses((prev) => prev.filter((g) => g.id !== guessId));
+      onGuessRemoved(guessId);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Jotain meni pieleen.");
     } finally {
